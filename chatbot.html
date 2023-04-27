@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>대화 봇</title>
+    <script src="https://cdn.tailwindcss.com/3.3.1"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/showdown/dist/showdown.min.js"></script>
+  </head>
+  <body class="bg-gray-100">
+    <div class="container mx-auto py-10 px-5">
+      <h1 class="text-3xl font-bold mb-5">대화 봇</h1>
+      <div class="bg-white p-5 rounded-lg">
+        <div class="flex">
+          <button
+            id="setting_toggle"
+            class="border border-solid flex-1 h-10 mb-5"
+          >
+            설정 열기
+          </button>
+        </div>
+        <div id="setting_box" class="hidden">
+          <div class="mb-5">
+            <label for="api_key" class="flex-1 block text-sm font-semibold mb-2"
+              >API Key:</label
+            >
+            <input
+              type="text"
+              id="api_key"
+              class="border w-full p-2 rounded"
+              placeholder="Enter your OpenAI API Key"
+            />
+            <button
+              id="save_key"
+              class="bg-blue-500 text-white px-4 py-2 mt-2 rounded"
+            >
+              Save API Key
+            </button>
+          </div>
+          <div class="mb-5">
+            <label for="models" class="block text-sm font-semibold mb-2"
+              >Models:</label
+            >
+            <select id="models" class="border w-full p-2 rounded"></select>
+          </div>
+          <div class="mb-5">
+            <label for="user_name" class="block text-sm font-semibold mb-2"
+              >User name:</label
+            >
+            <input
+              type="text"
+              id="user_name"
+              class="border w-full p-2 rounded"
+              placeholder="Enter your name"
+            />
+          </div>
+          <div class="mb-5">
+            <label for="assistant_name" class="block text-sm font-semibold mb-2"
+              >Assistant name:</label
+            >
+            <input
+              type="text"
+              id="assistant_name"
+              class="border w-full p-2 rounded"
+              placeholder="Enter your assistant's name"
+            />
+          </div>
+          <div class="mb-5">
+            <label for="instruction" class="block text-sm font-semibold mb-2"
+              >Instruction:</label
+            >
+            <textarea
+              id="instruction"
+              class="border w-full p-2 rounded"
+              placeholder="Enter an instruction"
+            ></textarea>
+          </div>
+        </div>
+        <div
+          id="chat_history"
+          class="border p-5 h-96 rounded overflow-y-auto mb-5"
+        ></div>
+        <div class="flex items-center">
+          <input
+            type="text"
+            id="message"
+            class="border w-full p-2 rounded flex-grow mr-2"
+            placeholder="Enter your message"
+          />
+          <button
+            id="send_message"
+            class="bg-blue-500 text-white px-4 py-2 rounded"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+    <script>
+      // Markdown to HTML converter initialize
+      const converter = new showdown.Converter();
+
+      // DOM Element
+      const settingToggle = document.getElementById("setting_toggle");
+      const settingBox = document.getElementById("setting_box");
+      const apiKeyInput = document.getElementById("api_key");
+      const saveKeyButton = document.getElementById("save_key");
+      const modelsSelect = document.getElementById("models");
+      const userNameInput = document.getElementById("user_name");
+      const assistantNameInput = document.getElementById("assistant_name");
+      const instructionInput = document.getElementById("instruction");
+      const messageInput = document.getElementById("message");
+      const sendMessageButton = document.getElementById("send_message");
+      const chatHistoryDiv = document.getElementById("chat_history");
+
+      let apiKey = "Empty";
+
+      // convert markdown to html
+      const markdownToHtml = (markdown) => {
+        return converter.makeHtml(markdown);
+      };
+
+      // Fetch available models from the OpenAI API
+      const getModels = async () => {
+        try {
+          const response = await axios.get(
+            "https://api.openai.com/v1/engines",
+            {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+              },
+            }
+          );
+          return response.data.data;
+        } catch (error) {
+          console.error(error);
+        }
+      };
+
+      // Update the models dropdown with fetched models
+      const updateModels = async () => {
+        const models = await getModels();
+        modelsSelect.innerHTML = "";
+        const selectedModel = loadSelectedModel();
+        models
+          .filter((model) => model.id.startsWith("gpt-"))
+          .forEach((model) => {
+            const option = document.createElement("option");
+            option.value = model.id;
+            option.textContent = model.id;
+            if (model.id === selectedModel) {
+              option.selected = true;
+            }
+            modelsSelect.appendChild(option);
+          });
+      };
+
+      const saveSelectedModel = (model) => {
+        localStorage.setItem("selectedModel", model);
+      };
+
+      const loadSelectedModel = () => {
+        return localStorage.getItem("selectedModel") || "";
+      };
+
+      // Save API key and update models
+      const saveApiKey = () => {
+        apiKey = apiKeyInput.value;
+        localStorage.setItem("apiKey", apiKey);
+        updateModels();
+      };
+
+      // Load API key from local storage and update models
+      const loadApiKey = () => {
+        apiKey = localStorage.getItem("apiKey");
+        if (apiKey) {
+          apiKeyInput.value = apiKey;
+          updateModels();
+        }
+      };
+
+      // Save user name and assistant name to local storage
+      const saveNames = () => {
+        localStorage.setItem("userName", userNameInput.value);
+        localStorage.setItem("assistantName", assistantNameInput.value);
+        displayConversation();
+      };
+
+      // Load user name and assistant name from local storage
+      const loadNames = () => {
+        const userName = localStorage.getItem("userName");
+        const assistantName = localStorage.getItem("assistantName");
+        if (userName) {
+          userNameInput.value = userName;
+        }
+        if (assistantName) {
+          assistantNameInput.value = assistantName;
+        }
+      };
+
+      // Save instruction to local storage
+      const saveInstruction = (instruction) => {
+        localStorage.setItem("instruction", JSON.stringify(instruction));
+      };
+
+      // Load instruction from local storage
+      const loadInstruction = () => {
+        const instruction = JSON.parse(localStorage.getItem("instruction"));
+        instructionInput.value = instruction;
+        return instruction;
+      };
+
+      // Save conversation to local storage
+      const saveConversation = (conversation) => {
+        localStorage.setItem("conversation", JSON.stringify(conversation));
+      };
+
+      // Load conversation from local storage
+      const loadConversation = () => {
+        const conversation = JSON.parse(localStorage.getItem("conversation"));
+        return conversation ? conversation : [];
+      };
+
+      // Append a message to the chat history
+      const appendMessage = (role, message) => {
+        const messageWrapper = document.createElement("div");
+        messageWrapper.classList.add("flex", "flex-col", "items-start", "mb-4");
+
+        const roleName = document.createElement("div");
+        roleName.classList.add();
+        roleName.textContent =
+          role === "user"
+            ? `${userNameInput.value}:`
+            : `${assistantNameInput.value}:`;
+
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add(
+          role === "user" ? "bg-gray-200" : "bg-sky-100",
+          "rounded-lg",
+          "p-4",
+          "text-black",
+          "break-all",
+          "whitespace-normal"
+        );
+        messageDiv.innerHTML = markdownToHtml(`${message.trim()}`);
+
+        messageWrapper.appendChild(roleName);
+        messageWrapper.appendChild(messageDiv);
+        chatHistoryDiv.appendChild(messageWrapper);
+      };
+
+      // Display conversation from local storage
+      const displayConversation = () => {
+        chatHistoryDiv.innerHTML = "";
+        const conversation = loadConversation();
+        conversation.forEach((msg) => {
+          appendMessage(msg.role, msg.content);
+        });
+      };
+
+      // Send a message to the AI
+      const sendMessage = async () => {
+        const instruction = instructionInput.value;
+        const message = messageInput.value;
+        const model = modelsSelect.value;
+        const apiKey = apiKeyInput.value;
+        const user_name = userNameInput.value;
+        const assistant_name = assistantNameInput.value;
+        const instructionWithNames = instruction
+          .replaceAll("{{user}}", user_name)
+          .replaceAll("{{char}}", assistant_name);
+
+        const conversation = loadConversation();
+        conversation.push({ role: "user", content: message });
+
+        while (JSON.stringify(conversation).length > 4000) {
+          conversation.shift();
+        }
+
+        saveConversation(conversation);
+
+        const messages = instruction
+          ? [{ role: "system", content: instructionWithNames }, ...conversation]
+          : conversation;
+
+        try {
+          const response = await axios.post(
+            `https://api.openai.com/v1/chat/completions`,
+            {
+              model: model,
+              messages: messages,
+              max_tokens: 300,
+              n: 1,
+              temperature: 1,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          conversation.push(response.data.choices[0].message);
+          saveConversation(conversation);
+          displayConversation();
+        } catch (error) {
+          console.error(error);
+        }
+
+        messageInput.value = "";
+      };
+
+      // Add event listeners
+      settingToggle.addEventListener("click", (event) => {
+        if (settingBox.classList.contains("hidden")) {
+          settingBox.classList.remove("hidden");
+          settingToggle.textContent = "설정 닫기";
+        } else {
+          settingBox.classList.add("hidden");
+          settingToggle.textContent = "설정 열기";
+        }
+      });
+      saveKeyButton.addEventListener("click", saveApiKey);
+      modelsSelect.addEventListener("change", (event) => {
+        saveSelectedModel(event.target.value);
+      });
+      userNameInput.addEventListener("change", saveNames);
+      assistantNameInput.addEventListener("change", saveNames);
+      instructionInput.addEventListener("change", (event) => {
+        saveInstruction(event.target.value);
+      });
+      sendMessageButton.addEventListener("click", sendMessage);
+      apiKeyInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          saveApiKey();
+        }
+      });
+      messageInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          sendMessage();
+        }
+      });
+
+      loadApiKey();
+      loadNames();
+      loadInstruction();
+      displayConversation();
+    </script>
+  </body>
+</html>
