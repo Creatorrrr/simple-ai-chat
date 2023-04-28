@@ -76,6 +76,14 @@
               placeholder="Enter an instruction"
             ></textarea>
           </div>
+          <div class="mb-5">
+            <button
+              id="delete_conversation"
+              class="bg-red-500 text-white px-4 py-2 rounded"
+            >
+              Delete conversation
+            </button>
+          </div>
         </div>
         <div
           id="chat_history"
@@ -113,6 +121,9 @@
       const messageInput = document.getElementById("message");
       const sendMessageButton = document.getElementById("send_message");
       const chatHistoryDiv = document.getElementById("chat_history");
+      const deleteConversationButton = document.getElementById(
+        "delete_conversation"
+      );
 
       let apiKey = "Empty";
 
@@ -312,6 +323,12 @@
         messageInput.value = "";
       };
 
+      // Delete conversation from local storage
+      const deleteConversation = () => {
+        localStorage.removeItem("conversation");
+        chatHistoryDiv.innerHTML = "";
+      };
+
       // Add event listeners
       settingToggle.addEventListener("click", (event) => {
         if (settingBox.classList.contains("hidden")) {
@@ -342,6 +359,7 @@
           sendMessage();
         }
       });
+      deleteConversationButton.addEventListener("click", deleteConversation);
 
       loadApiKey();
       loadNames();
