@@ -76,6 +76,28 @@
               placeholder="Enter an instruction"
             ></textarea>
           </div>
+          <div class="mb-2">
+            <button
+              id="export_json"
+              class="bg-green-500 text-white px-4 py-2 rounded"
+            >
+              Export as JSON
+            </button>
+            <input
+              type="file"
+              id="import_json"
+              class="bg-blue-500 text-white px-4 py-2 rounded"
+              style="display: none"
+            />
+          </div>
+          <div class="mb-2">
+            <button
+              for="import_json"
+              class="bg-blue-500 text-white px-4 py-2 rounded"
+            >
+              Import from JSON
+            </label>
+          </div>
           <div class="mb-5">
             <button
               id="delete_conversation"
@@ -124,6 +146,8 @@
       const deleteConversationButton = document.getElementById(
         "delete_conversation"
       );
+      const exportJsonButton = document.getElementById("export_json");
+      const importJsonInput = document.getElementById("import_json");
 
       let apiKey = "Empty";
 
@@ -329,6 +353,47 @@
         chatHistoryDiv.innerHTML = "";
       };
 
+      // Export settings and conversation to JSON
+      const exportToJson = () => {
+        const data = {
+          apiKey: apiKeyInput.value,
+          selectedModel: modelsSelect.value,
+          userName: userNameInput.value,
+          assistantName: assistantNameInput.value,
+          instruction: instructionInput.value,
+          conversation: loadConversation(),
+        };
+
+        const json = JSON.stringify(data);
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "settings_and_conversation.json";
+        link.click();
+        URL.revokeObjectURL(url);
+      };
+
+      // Import settings and conversation from JSON
+      const importFromJson = async (file) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const data = JSON.parse(event.target.result);
+          apiKeyInput.value = data.apiKey;
+          modelsSelect.value = data.selectedModel;
+          userNameInput.value = data.userName;
+          assistantNameInput.value = data.assistantName;
+          instructionInput.value = data.instruction;
+          saveConversation(data.conversation);
+
+          saveApiKey();
+          saveNames();
+          saveInstruction(instructionInput.value);
+          displayConversation();
+        };
+        reader.readAsText(file);
+      };
+
       // Add event listeners
       settingToggle.addEventListener("click", (event) => {
         if (settingBox.classList.contains("hidden")) {
@@ -360,6 +425,12 @@
         }
       });
       deleteConversationButton.addEventListener("click", deleteConversation);
+      exportJsonButton.addEventListener("click", exportToJson);
+      importJsonInput.addEventListener("change", (event) => {
+        if (event.target.files.length > 0) {
+          importFromJson(event.target.files[0]);
+        }
+      });
 
       loadApiKey();
       loadNames();
