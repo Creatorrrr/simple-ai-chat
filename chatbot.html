@@ -356,7 +356,6 @@
       // Export settings and conversation to JSON
       const exportToJson = () => {
         const data = {
-          apiKey: apiKeyInput.value,
           selectedModel: modelsSelect.value,
           userName: userNameInput.value,
           assistantName: assistantNameInput.value,
@@ -379,14 +378,12 @@
         const reader = new FileReader();
         reader.onload = (event) => {
           const data = JSON.parse(event.target.result);
-          apiKeyInput.value = data.apiKey;
           modelsSelect.value = data.selectedModel;
           userNameInput.value = data.userName;
           assistantNameInput.value = data.assistantName;
           instructionInput.value = data.instruction;
           saveConversation(data.conversation);
 
-          saveApiKey();
           saveNames();
           saveInstruction(instructionInput.value);
           displayConversation();
